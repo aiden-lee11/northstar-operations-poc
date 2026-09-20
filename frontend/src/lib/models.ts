@@ -73,6 +73,40 @@ export interface AuditListResponse {
   environment: Environment;
 }
 
+export type EvaluationReason =
+  | "flag_disabled"
+  | "rollout_zero"
+  | "bucket_within_rollout"
+  | "bucket_outside_rollout";
+
+export interface DemoAccount {
+  id: string;
+  label: string;
+  segment: string;
+}
+
+export interface FlagEvaluation {
+  key: string;
+  environment: Environment;
+  account_id: string;
+  decision: boolean;
+  reason: EvaluationReason;
+  bucket: number;
+  bucket_count: number;
+  threshold: number;
+  enabled: boolean;
+  rollout_percent: number;
+  version: number;
+}
+
+export interface FlagEvaluationResponse {
+  key: string;
+  environment: Environment;
+  flag: Flag;
+  accounts: DemoAccount[];
+  evaluations: FlagEvaluation[];
+}
+
 export interface FlagUpdatePayload {
   environment: Environment;
   enabled: boolean;

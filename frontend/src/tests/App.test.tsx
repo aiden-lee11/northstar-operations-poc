@@ -3,7 +3,15 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { api } from "../lib/api";
-import type { AuditEvent, Environment, Flag, Refund } from "../lib/models";
+import type {
+  AuditEvent,
+  DemoAccount,
+  Environment,
+  Flag,
+  FlagEvaluation,
+  FlagEvaluationResponse,
+  Refund,
+} from "../lib/models";
 
 const refund: Refund = {
   id: "ref_0008",
@@ -526,5 +534,168 @@ describe("feature flag operations", () => {
     expect(within(dialog).getByRole("button", { name: "Confirm change" })).toBeDisabled();
     await user.click(within(dialog).getByRole("button", { name: "Confirm change" }));
     expect(postCount).toBe(1);
+  });
+});
+
+const previewAccounts: DemoAccount[] = [
+  { id: "acct_demo_aurora", label: "Aurora Test Account", segment: "Synthetic · Retail" },
+  { id: "acct_demo_basalt", label: "Basalt Test Account", segment: "Synthetic · Retail" },
+];
+
+function makeEvaluation(
+  accountId: string,
+  bucket: number,
+  flag: Flag,
+): FlagEvaluation {
+  const threshold = flag.rollout_percent * 100;
+  const decision = flag.enabled && bucket < threshold;
+  return {
+    key: flag.key,
+    environment: flag.environment,
+    account_id: accountId,
+    decision,
+    reason: !flag.enabled
+      ? "flag_disabled"
+      : flag.rollout_percent === 0
+        ? "rollout_zero"
+        : decision
+          ? "bucket_within_rollout"
+          : "bucket_outside_rollout",
+    bucket,
+    bucket_count: 10000,
+    threshold,
+    enabled: flag.enabled,
+    rollout_percent: flag.rollout_percent,
+    version: flag.version,
+  };
+}
+
+function evaluationResponse(flag: Flag, buckets: [number, number] = [1200, 8800]): FlagEvaluationResponse {
+  return {
+    key: flag.key,
+    environment: flag.environment,
+    flag,
+    accounts: previewAccounts,
+    evaluations: previewAccounts.map((account, index) => makeEvaluation(account.id, buckets[index], flag)),
+  };
+}
+
+describe("customer preview", () => {
+  it("renders the backend decision, explanation, and matching checkout per account", async () => {
+    const flag = makeFlag("staging", { enabled: true, rollout_percent: 25, version: 4 });
+    installFetch((path) => {
+      if (path.startsWith("/api/refunds")) return refundList([refund]);
+      if (path.startsWith("/api/flags/new_checkout_flow/evaluations")) return jsonResponse(evaluationResponse(flag));
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Customer preview" }));
+
+    expect(await screen.findByRole("region", { name: "New checkout experience" })).toBeInTheDocument();
+    expect(screen.getByText(/1 of 2 demo accounts receive the new checkout/)).toBeInTheDocument();
+    expect(screen.getByText(/bucket 1,200 falls inside the 25% rollout/)).toBeInTheDocument();
+    expect(screen.getByText("1,200 of 10,000")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Customer preview" })).getByText("v4")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Basalt Test Account/ }));
+    expect(await screen.findByRole("region", { name: "Old checkout experience" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "New checkout experience" })).not.toBeInTheDocument();
+    expect(screen.getByText(/bucket 8,800 falls outside the 25% rollout/)).toBeInTheDocument();
+  });
+
+  it("re-evaluates when the environment changes and when decisions are refreshed", async () => {
+    const staging = makeFlag("staging", { enabled: true, rollout_percent: 25, version: 2 });
+    const production = makeFlag("production", { enabled: false, rollout_percent: 0, version: 1 });
+    let stagingVersion = staging;
+    const fetchMock = installFetch((path) => {
+      if (path.startsWith("/api/refunds")) return refundList([refund]);
+      if (path.startsWith("/api/flags/new_checkout_flow/evaluations")) {
+        const environment = new URL(path, "http://local.test").searchParams.get("environment") as Environment;
+        return jsonResponse(evaluationResponse(environment === "production" ? production : stagingVersion));
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Customer preview" }));
+    await screen.findByRole("region", { name: "New checkout experience" });
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Environment" }), "production");
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/flags/new_checkout_flow/evaluations?environment=production", expect.any(Object)),
+    );
+    expect(await screen.findByRole("region", { name: "Old checkout experience" })).toBeInTheDocument();
+    expect(screen.getByText(/new_checkout_flow is disabled in production/)).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Environment" }), "staging");
+    await screen.findByRole("region", { name: "New checkout experience" });
+    stagingVersion = makeFlag("staging", { enabled: true, rollout_percent: 100, version: 3 });
+    await user.click(screen.getByRole("button", { name: "Refresh decisions" }));
+    expect(await screen.findByText(/2 of 2 demo accounts receive the new checkout/)).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Customer preview" })).getByText("v3")).toBeInTheDocument();
+  });
+
+  it("shows the current configuration after an admin change when the preview is reopened", async () => {
+    let flag = makeFlag("staging", { enabled: false, rollout_percent: 25, version: 1 });
+    installFetch((path, init) => {
+      if (init?.method === "POST") {
+        flag = makeFlag("staging", { enabled: true, rollout_percent: 25, version: 2 });
+        return jsonResponse(flag);
+      }
+      if (path.startsWith("/api/refunds")) return refundList([refund]);
+      if (path.startsWith("/api/flags/new_checkout_flow/evaluations")) return jsonResponse(evaluationResponse(flag));
+      if (path.startsWith("/api/flags?")) return jsonResponse({ flags: [flag], environment: "staging" });
+      if (path.startsWith("/api/audit?")) return jsonResponse({ events: [], environment: "staging" });
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Customer preview" }));
+    expect(await screen.findByRole("region", { name: "Old checkout experience" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Feature flags" }));
+    await user.click(await screen.findByRole("button", { name: "Review change" }));
+    const dialog = screen.getByRole("dialog", { name: "Review New checkout flow" });
+    await user.click(within(dialog).getByRole("checkbox", { name: /Enabled/ }));
+    await user.type(within(dialog).getByRole("textbox", { name: /Reason/ }), "Enable the synthetic cohort");
+    await user.click(within(dialog).getByRole("button", { name: "Confirm change" }));
+
+    await user.click(screen.getByRole("button", { name: "Customer preview" }));
+    expect(await screen.findByRole("region", { name: "New checkout experience" })).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Customer preview" })).getByText("v2")).toBeInTheDocument();
+  });
+
+  it("does not let a deferred evaluation replace a newer selection", async () => {
+    const stagingBody = deferred<unknown>();
+    const staging = makeFlag("staging", { enabled: true, rollout_percent: 25, version: 2 });
+    const production = makeFlag("production", { enabled: true, rollout_percent: 100, version: 5 });
+    const fetchMock = installFetch((path) => {
+      if (path.startsWith("/api/refunds")) return refundList([refund]);
+      if (path.startsWith("/api/flags/new_checkout_flow/evaluations")) {
+        const environment = new URL(path, "http://local.test").searchParams.get("environment") as Environment;
+        if (environment === "staging") return deferredJsonResponse(stagingBody.promise);
+        return jsonResponse(evaluationResponse(production));
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Customer preview" }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/flags/new_checkout_flow/evaluations?environment=staging", expect.any(Object)),
+    );
+    await user.selectOptions(screen.getByRole("combobox", { name: "Environment" }), "production");
+    expect(await screen.findByText("v5")).toBeInTheDocument();
+
+    await act(async () => {
+      stagingBody.resolve(evaluationResponse(staging));
+      await stagingBody.promise;
+    });
+
+    const preview = screen.getByRole("region", { name: "Customer preview" });
+    expect(within(preview).getByText("v5")).toBeInTheDocument();
+    expect(within(preview).getByText(/2 of 2 demo accounts receive the new checkout/)).toBeInTheDocument();
+    expect(within(preview).queryByText("v2")).not.toBeInTheDocument();
   });
 });

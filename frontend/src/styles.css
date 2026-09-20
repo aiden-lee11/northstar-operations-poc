@@ -1376,6 +1376,207 @@ footer {
   padding-top: 2px;
 }
 
+.preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.preview-layout {
+  display: grid;
+  align-items: start;
+  gap: 18px;
+  grid-template-columns: 300px minmax(0, 1fr);
+}
+
+.preview-main {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.account-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 10px;
+  list-style: none;
+}
+
+.account-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  text-align: left;
+  color: inherit;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+}
+
+.account-item:hover {
+  background: var(--surface-muted);
+}
+
+.account-item.active {
+  border-color: var(--emerald-600);
+  background: var(--emerald-50);
+}
+
+.account-name,
+.account-decision {
+  display: grid;
+  gap: 2px;
+}
+
+.account-decision {
+  justify-items: end;
+}
+
+.account-name small,
+.account-decision small {
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.sample-note {
+  margin: 0;
+  padding: 0 22px 18px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.decision-reason {
+  margin: 0;
+  padding: 18px 22px 4px;
+  font-size: 15px;
+}
+
+.decision-panel .detail-grid {
+  padding: 14px 22px 6px;
+}
+
+.checkout .panel-header {
+  background: var(--surface-muted);
+}
+
+.checkout-new {
+  border-color: var(--emerald-600);
+}
+
+.checkout-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.checkout-table th,
+.checkout-table td {
+  padding: 10px 22px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.checkout-table th {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.checkout-table small {
+  color: var(--faint);
+}
+
+.checkout-steps {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
+  padding: 18px 22px 6px;
+  list-style: none;
+  counter-reset: step;
+}
+
+.checkout-steps li {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-muted);
+}
+
+.checkout-steps li.done {
+  border-color: var(--emerald-100);
+  background: var(--emerald-50);
+}
+
+.checkout-steps li.current {
+  border-color: var(--emerald-600);
+  background: var(--surface);
+}
+
+.checkout-steps small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.checkout-summary-cards {
+  display: grid;
+  gap: 8px;
+  padding: 12px 22px 0;
+}
+
+.checkout-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.checkout-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 22px 6px;
+  font-size: 15px;
+}
+
+.checkout-note {
+  margin: 0;
+  padding: 0 22px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.checkout .primary-button {
+  margin: 14px 22px 0;
+}
+
+.checkout-disclosure {
+  margin: 12px 0 0;
+  padding: 12px 22px;
+  color: var(--muted);
+  font-size: 12px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-muted);
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -1394,7 +1595,8 @@ footer {
 
 @media (max-width: 1120px) {
   .refunds-grid,
-  .flags-layout {
+  .flags-layout,
+  .preview-layout {
     grid-template-columns: 1fr;
   }
 

@@ -331,6 +331,107 @@ class AppHTTPTests(unittest.TestCase):
         self.assert_error(result, 405, "method_not_allowed")
         self.assertEqual("GET, POST", result[1]["Allow"])
 
+    def test_evaluation_endpoint_returns_one_consistent_snapshot(self):
+        status, _, payload = self.request(
+            "GET", "/api/flags/new_checkout_flow/evaluations?environment=staging"
+        )
+        self.assertEqual(200, status)
+        self.assertEqual("staging", payload["environment"])
+        self.assertEqual(8, len(payload["accounts"]))
+        self.assertEqual(8, len(payload["evaluations"]))
+        self.assertEqual(
+            [account["id"] for account in payload["accounts"]],
+            [item["account_id"] for item in payload["evaluations"]],
+        )
+        for evaluation in payload["evaluations"]:
+            self.assertEqual(payload["flag"]["version"], evaluation["version"])
+            self.assertEqual(payload["flag"]["rollout_percent"], evaluation["rollout_percent"])
+            self.assertEqual(
+                {
+                    "key",
+                    "environment",
+                    "account_id",
+                    "decision",
+                    "reason",
+                    "bucket",
+                    "bucket_count",
+                    "threshold",
+                    "enabled",
+                    "rollout_percent",
+                    "version",
+                },
+                set(evaluation),
+            )
+
+    def test_evaluation_reflects_updates_and_rollback_without_auditing(self):
+        payload = self.update_payload()
+        payload["enabled"] = True
+        payload["rollout_percent"] = 100
+        status, _, updated = self.post("/api/flags/new_checkout_flow", payload)
+        self.assertEqual(200, status)
+        evaluated = self.request(
+            "GET", "/api/flags/new_checkout_flow/evaluations?environment=staging"
+        )[2]
+        self.assertTrue(all(item["decision"] for item in evaluated["evaluations"]))
+        self.assertEqual(updated["version"], evaluated["flag"]["version"])
+        rollback = {
+            "environment": "staging",
+            "reason": "Restore the earlier staged configuration",
+            "expected_version": updated["version"],
+            "confirmation": "",
+        }
+        self.post("/api/flags/new_checkout_flow/rollback", rollback)
+        restored = self.request(
+            "GET", "/api/flags/new_checkout_flow/evaluations?environment=staging"
+        )[2]
+        self.assertEqual(50, restored["flag"]["rollout_percent"])
+        self.assertEqual(3, restored["flag"]["version"])
+        self.assertEqual(2, len(self.request("GET", "/api/audit?environment=staging")[2]["events"]))
+
+    def test_evaluation_is_read_only_and_validated(self):
+        before = self.request("GET", "/api/flags?environment=staging")[2]
+        self.request("GET", "/api/flags/new_checkout_flow/evaluations?environment=staging")
+        self.assertEqual(before, self.request("GET", "/api/flags?environment=staging")[2])
+        self.assertEqual([], self.request("GET", "/api/audit?environment=staging")[2]["events"])
+        self.assert_error(
+            self.post("/api/flags/new_checkout_flow/evaluations", self.update_payload()),
+            404,
+            "not_found",
+        )
+        self.assert_error(
+            self.request("GET", "/api/flags/new_checkout_flow/evaluations?environment=qa"),
+            400,
+            "validation_error",
+        )
+        self.assert_error(
+            self.request("GET", "/api/flags/new_checkout_flow/evaluations?account=Bad-Account"),
+            400,
+            "validation_error",
+        )
+        self.assert_error(
+            self.request("GET", "/api/flags/new_checkout_flow/evaluations?unexpected=1"),
+            400,
+            "validation_error",
+        )
+        self.assert_error(
+            self.request("GET", "/api/flags/missing_flag/evaluations"),
+            404,
+            "not_found",
+        )
+
+    def test_evaluation_accepts_a_single_synthetic_account(self):
+        status, _, payload = self.request(
+            "GET",
+            "/api/flags/new_checkout_flow/evaluations?environment=production&account=acct_demo_aurora",
+        )
+        self.assertEqual(200, status)
+        self.assertEqual(1, len(payload["evaluations"]))
+        evaluation = payload["evaluations"][0]
+        self.assertEqual("acct_demo_aurora", evaluation["account_id"])
+        self.assertEqual("production", evaluation["environment"])
+        self.assertFalse(evaluation["decision"])
+        self.assertEqual("flag_disabled", evaluation["reason"])
+
     def test_new_server_has_fresh_flag_store(self):
         self.post("/api/flags/new_checkout_flow", self.update_payload())
         other = app.create_server()

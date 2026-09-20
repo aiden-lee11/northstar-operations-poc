@@ -6,7 +6,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from . import refunds
-from .flags import ConflictError, FlagStore
+from .flags import ConflictError, FlagStore, demo_accounts
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -17,6 +17,7 @@ ENVIRONMENTS = {"development", "staging", "production"}
 REFUND_DETAIL = re.compile(r"^/api/refunds/([^/]+)$")
 FLAG_UPDATE = re.compile(r"^/api/flags/([^/]+)$")
 FLAG_ROLLBACK = re.compile(r"^/api/flags/([^/]+)/rollback$")
+FLAG_EVALUATIONS = re.compile(r"^/api/flags/([^/]+)/evaluations$")
 
 
 class DemoHTTPServer(ThreadingHTTPServer):
@@ -97,6 +98,37 @@ class DemoRequestHandler(BaseHTTPRequestHandler):
                 self._error(400, "validation_error", str(error))
                 return
             self._send_json(200, {"flags": items, "environment": environment})
+            return
+        evaluation_match = FLAG_EVALUATIONS.fullmatch(parsed.path)
+        if evaluation_match:
+            params = self._query_values(parsed.query, {"environment", "account"})
+            if params is None:
+                return
+            environment = params.get("environment", "staging")
+            account = params.get("account")
+            key = unquote(evaluation_match.group(1))
+            try:
+                snapshot = self.server.flag_store.evaluate_accounts(
+                    key,
+                    environment,
+                    None if account is None else [account],
+                )
+            except KeyError:
+                self._error(404, "not_found", "Flag not found")
+                return
+            except ValueError as error:
+                self._error(400, "validation_error", str(error))
+                return
+            self._send_json(
+                200,
+                {
+                    "key": key,
+                    "environment": environment,
+                    "flag": snapshot["flag"],
+                    "accounts": demo_accounts(),
+                    "evaluations": snapshot["evaluations"],
+                },
+            )
             return
         if parsed.path == "/api/audit":
             params = self._query_values(parsed.query, {"environment"})

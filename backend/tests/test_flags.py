@@ -3,7 +3,7 @@ import unittest
 import uuid
 from datetime import datetime
 
-from backend.flags import ConflictError, FlagStore
+from backend.flags import BUCKET_COUNT, DEMO_ACCOUNTS, ConflictError, FlagStore, assign_bucket, demo_accounts
 
 
 class FlagStoreTests(unittest.TestCase):
@@ -400,6 +400,158 @@ class FlagStoreTests(unittest.TestCase):
         restarted = FlagStore()
         self.assertEqual(1, restarted.get_flag(self.key)["version"])
         self.assertEqual([], restarted.list_audit())
+
+
+class EvaluationTests(unittest.TestCase):
+    def setUp(self):
+        self.store = FlagStore()
+        self.key = "new_checkout_flow"
+        self.accounts = [account["id"] for account in DEMO_ACCOUNTS]
+
+    def set_state(self, environment, enabled, rollout_percent, version):
+        return self.store.update_flag(
+            self.key,
+            environment,
+            enabled=enabled,
+            rollout_percent=rollout_percent,
+            reason="Move the synthetic rollout for evaluation",
+            expected_version=version,
+            confirmation=self.key if environment == "production" else "",
+        )
+
+    def decisions(self, environment="staging"):
+        snapshot = self.store.evaluate_accounts(self.key, environment)
+        return {item["account_id"]: item["decision"] for item in snapshot["evaluations"]}
+
+    def test_demo_accounts_are_synthetic_and_copied(self):
+        first = demo_accounts()
+        first[0]["label"] = "mutated"
+        self.assertEqual(8, len(demo_accounts()))
+        self.assertNotEqual("mutated", demo_accounts()[0]["label"])
+        for account in demo_accounts():
+            self.assertTrue(account["id"].startswith("acct_demo_"))
+
+    def test_bucket_is_stable_and_within_range(self):
+        for account in self.accounts:
+            bucket = assign_bucket(self.key, "staging", account)
+            self.assertEqual(bucket, assign_bucket(self.key, "staging", account))
+            self.assertEqual(bucket, FlagStore().evaluate(self.key, "staging", account)["bucket"])
+            self.assertTrue(0 <= bucket < BUCKET_COUNT)
+        self.assertEqual(9289, assign_bucket(self.key, "staging", "acct_demo_aurora"))
+
+    def test_bucket_depends_only_on_key_environment_and_account(self):
+        before = self.store.evaluate(self.key, "staging", "acct_demo_aurora")
+        self.set_state("staging", True, 77, 1)
+        after = self.store.evaluate(self.key, "staging", "acct_demo_aurora")
+        self.assertEqual(before["bucket"], after["bucket"])
+        self.assertNotEqual(after["version"], before["version"])
+        self.assertNotEqual(
+            assign_bucket(self.key, "staging", "acct_demo_aurora"),
+            assign_bucket(self.key, "production", "acct_demo_aurora"),
+        )
+        self.assertNotEqual(
+            assign_bucket(self.key, "staging", "acct_demo_aurora"),
+            assign_bucket("smart_search_ranking", "staging", "acct_demo_aurora"),
+        )
+
+    def test_disabled_flag_evaluates_off_for_every_account(self):
+        self.set_state("staging", False, 100, 1)
+        snapshot = self.store.evaluate_accounts(self.key, "staging")
+        for evaluation in snapshot["evaluations"]:
+            self.assertFalse(evaluation["decision"])
+            self.assertEqual("flag_disabled", evaluation["reason"])
+
+    def test_zero_percent_evaluates_off_for_every_account(self):
+        self.set_state("staging", True, 0, 1)
+        for evaluation in self.store.evaluate_accounts(self.key, "staging")["evaluations"]:
+            self.assertFalse(evaluation["decision"])
+            self.assertEqual("rollout_zero", evaluation["reason"])
+            self.assertEqual(0, evaluation["threshold"])
+
+    def test_full_rollout_evaluates_on_for_every_account(self):
+        self.set_state("staging", True, 100, 1)
+        for evaluation in self.store.evaluate_accounts(self.key, "staging")["evaluations"]:
+            self.assertTrue(evaluation["decision"])
+            self.assertEqual("bucket_within_rollout", evaluation["reason"])
+            self.assertEqual(BUCKET_COUNT, evaluation["threshold"])
+
+    def test_cohort_expands_monotonically_with_rollout(self):
+        version = 1
+        included = set()
+        for rollout_percent in (5, 25, 50, 75, 100):
+            version = self.set_state("staging", True, rollout_percent, version)["version"]
+            current = {
+                account for account, decision in self.decisions().items() if decision
+            }
+            self.assertTrue(included.issubset(current))
+            included = current
+        self.assertEqual(set(self.accounts), included)
+
+    def test_environments_are_evaluated_independently(self):
+        self.set_state("staging", True, 100, 1)
+        self.assertTrue(all(self.decisions("staging").values()))
+        self.assertFalse(any(self.decisions("production").values()))
+        development = self.store.evaluate_accounts(self.key, "development")
+        self.assertEqual(1, development["flag"]["version"])
+        self.assertTrue(all(item["decision"] for item in development["evaluations"]))
+
+    def test_rollback_restores_the_previous_cohort_with_a_new_version(self):
+        version = self.set_state("staging", True, 25, 1)["version"]
+        cohort = self.decisions()
+        version = self.set_state("staging", True, 100, version)["version"]
+        self.assertNotEqual(cohort, self.decisions())
+        restored = self.store.rollback_flag(
+            self.key,
+            "staging",
+            reason="Restore the smaller synthetic cohort",
+            expected_version=version,
+        )
+        self.assertEqual(cohort, self.decisions())
+        self.assertEqual(version + 1, restored["version"])
+        self.assertEqual(
+            restored["version"],
+            self.store.evaluate(self.key, "staging", self.accounts[0])["version"],
+        )
+
+    def test_evaluation_is_read_only(self):
+        before_flag = self.store.get_flag(self.key)
+        before_audit = self.store.list_audit()
+        self.store.evaluate(self.key, "staging", self.accounts[0])
+        snapshot = self.store.evaluate_accounts(self.key, "staging")
+        snapshot["flag"]["rollout_percent"] = 999
+        self.assertEqual(before_flag, self.store.get_flag(self.key))
+        self.assertEqual(before_audit, self.store.list_audit())
+        self.assertEqual([], self.store.list_audit())
+
+    def test_evaluation_snapshot_is_internally_consistent(self):
+        self.set_state("staging", True, 25, 1)
+        snapshot = self.store.evaluate_accounts(self.key, "staging")
+        flag = snapshot["flag"]
+        self.assertEqual(len(DEMO_ACCOUNTS), len(snapshot["evaluations"]))
+        for evaluation in snapshot["evaluations"]:
+            self.assertEqual(flag["version"], evaluation["version"])
+            self.assertEqual(flag["rollout_percent"], evaluation["rollout_percent"])
+            self.assertEqual(flag["enabled"], evaluation["enabled"])
+            self.assertEqual(2500, evaluation["threshold"])
+            self.assertEqual(
+                evaluation["decision"], evaluation["bucket"] < evaluation["threshold"]
+            )
+
+    def test_evaluation_validates_environment_account_and_key(self):
+        for environment in ("qa", "", None, 1):
+            with self.subTest(environment=environment):
+                with self.assertRaises(ValueError):
+                    self.store.evaluate(self.key, environment, self.accounts[0])
+                with self.assertRaises(ValueError):
+                    self.store.evaluate_accounts(self.key, environment)
+        for account in ("", "ab", "Acct_Demo", "acct demo", "a" * 41, None, 7):
+            with self.subTest(account=account):
+                with self.assertRaises(ValueError):
+                    self.store.evaluate(self.key, "staging", account)
+        with self.assertRaises(KeyError):
+            self.store.evaluate("missing_flag", "staging", self.accounts[0])
+        with self.assertRaises(KeyError):
+            self.store.evaluate_accounts("missing_flag", "staging")
 
 
 if __name__ == "__main__":

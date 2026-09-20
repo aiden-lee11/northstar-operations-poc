@@ -1,11 +1,38 @@
 import copy
+import hashlib
+import re
 import threading
 import uuid
 from datetime import datetime, timezone
 
 
+BUCKET_COUNT = 10_000
+ACCOUNT_ID_PATTERN = re.compile(r"[a-z0-9_]{3,40}")
+DEMO_ACCOUNTS = (
+    {"id": "acct_demo_aurora", "label": "Aurora Test Account", "segment": "Synthetic · Retail"},
+    {"id": "acct_demo_basalt", "label": "Basalt Test Account", "segment": "Synthetic · Retail"},
+    {"id": "acct_demo_cedar", "label": "Cedar Test Account", "segment": "Synthetic · Marketplace"},
+    {"id": "acct_demo_dune", "label": "Dune Test Account", "segment": "Synthetic · Marketplace"},
+    {"id": "acct_demo_ember", "label": "Ember Test Account", "segment": "Synthetic · Subscriptions"},
+    {"id": "acct_demo_fjord", "label": "Fjord Test Account", "segment": "Synthetic · Subscriptions"},
+    {"id": "acct_demo_glacier", "label": "Glacier Test Account", "segment": "Synthetic · Enterprise"},
+    {"id": "acct_demo_harbor", "label": "Harbor Test Account", "segment": "Synthetic · Enterprise"},
+)
+
+
 class ConflictError(ValueError):
     pass
+
+
+def demo_accounts() -> list[dict]:
+    return copy.deepcopy(list(DEMO_ACCOUNTS))
+
+
+def assign_bucket(key: str, environment: str, account_id: str) -> int:
+    digest = hashlib.sha256(
+        "{}:{}:{}".format(key, environment, account_id).encode("utf-8")
+    ).digest()
+    return int.from_bytes(digest[:8], "big") % BUCKET_COUNT
 
 
 class FlagStore:
@@ -96,6 +123,30 @@ class FlagStore:
             except (KeyError, TypeError):
                 raise KeyError(key)
             return copy.deepcopy(flag)
+
+    def evaluate(self, key: str, environment: str, account_id: str) -> dict:
+        with self._lock:
+            self._validate_environment(environment)
+            normalized_account = self._validate_account_id(account_id)
+            flag = self._find_flag(key, environment)
+            return self._decide(flag, normalized_account)
+
+    def evaluate_accounts(
+        self, key: str, environment: str, account_ids: list[str] | None = None
+    ) -> dict:
+        with self._lock:
+            self._validate_environment(environment)
+            if account_ids is None:
+                requested = [account["id"] for account in DEMO_ACCOUNTS]
+            else:
+                requested = [
+                    self._validate_account_id(account_id) for account_id in account_ids
+                ]
+            flag = self._find_flag(key, environment)
+            return {
+                "flag": copy.deepcopy(flag),
+                "evaluations": [self._decide(flag, account) for account in requested],
+            }
 
     def update_flag(
         self,
@@ -188,6 +239,40 @@ class FlagStore:
     def _validate_environment(self, environment):
         if environment not in self._ENVIRONMENTS:
             raise ValueError("environment must be development, staging, or production")
+
+    @staticmethod
+    def _validate_account_id(account_id):
+        if not isinstance(account_id, str) or not ACCOUNT_ID_PATTERN.fullmatch(account_id):
+            raise ValueError(
+                "account_id must contain 3 to 40 lowercase letters, digits, or underscores"
+            )
+        return account_id
+
+    @staticmethod
+    def _decide(flag, account_id):
+        bucket = assign_bucket(flag["key"], flag["environment"], account_id)
+        threshold = flag["rollout_percent"] * (BUCKET_COUNT // 100)
+        if not flag["enabled"]:
+            decision, reason = False, "flag_disabled"
+        elif flag["rollout_percent"] == 0:
+            decision, reason = False, "rollout_zero"
+        elif bucket < threshold:
+            decision, reason = True, "bucket_within_rollout"
+        else:
+            decision, reason = False, "bucket_outside_rollout"
+        return {
+            "key": flag["key"],
+            "environment": flag["environment"],
+            "account_id": account_id,
+            "decision": decision,
+            "reason": reason,
+            "bucket": bucket,
+            "bucket_count": BUCKET_COUNT,
+            "threshold": threshold,
+            "enabled": flag["enabled"],
+            "rollout_percent": flag["rollout_percent"],
+            "version": flag["version"],
+        }
 
     @staticmethod
     def _validate_enabled(enabled):

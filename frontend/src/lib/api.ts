@@ -2,6 +2,7 @@ import type {
   AuditListResponse,
   Environment,
   Flag,
+  FlagEvaluationResponse,
   FlagListResponse,
   FlagRollbackPayload,
   FlagUpdatePayload,
@@ -74,6 +75,14 @@ export const api = {
   listFlags(environment: Environment, signal?: AbortSignal) {
     const params = new URLSearchParams({ environment });
     return request<FlagListResponse>(`/api/flags?${params.toString()}`, { signal });
+  },
+
+  listEvaluations(key: string, environment: Environment, signal?: AbortSignal) {
+    const params = new URLSearchParams({ environment });
+    return request<FlagEvaluationResponse>(
+      `/api/flags/${encodeURIComponent(key)}/evaluations?${params.toString()}`,
+      { signal },
+    );
   },
 
   listAudit(environment: Environment, signal?: AbortSignal) {

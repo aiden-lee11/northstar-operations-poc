@@ -29,7 +29,7 @@ The backend uses Python 3.11 or newer and the Python standard library only. Brow
 - `backend/app.py` owns the HTTP server, constrained root-level `dist/` static serving, API routing, JSON validation, mutation request protections, and error mapping.
 - `backend/refunds.py` owns the read-only synthetic refund domain and summary.
 - `backend/flags.py` owns environment-isolated in-memory flag state, validation, optimistic concurrency, rollback, and audit events.
-- `frontend/src/App.tsx` owns the shared shell; `frontend/src/features/refunds/RefundsView.tsx` and `frontend/src/features/flags/FlagsView.tsx` own the workflow views. `frontend/src/components/SharedDialog.tsx` owns shared dialog and inline-state presentation.
+- `frontend/src/App.tsx` owns the shared shell; `frontend/src/features/refunds/RefundsView.tsx` and `frontend/src/features/flags/FlagsView.tsx` own the workflow views; `frontend/src/features/preview/CustomerPreviewView.tsx` owns the synthetic flag consumer and renders only the decisions `backend/flags.py` returns. `frontend/src/components/SharedDialog.tsx` owns shared dialog and inline-state presentation.
 - `frontend/src/lib/api.ts` and `frontend/src/lib/models.ts` own the typed same-origin API client and frontend API models. `frontend/src/lib/format.ts` owns shared formatting.
 - `frontend/index.html` is the Vite entry document. `frontend/src/main.tsx` imports the shared presentation source, `frontend/src/styles.css`. Build and type-check configuration live in `frontend/vite.config.ts` and `frontend/tsconfig.json`.
 - `legacy/app.js` is an unused legacy reference. Do not load it, serve it, or treat it as active frontend source.
