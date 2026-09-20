@@ -5,11 +5,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
 
-import refunds
-from flags import ConflictError, FlagStore
+from . import refunds
+from .flags import ConflictError, FlagStore
 
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parents[1]
 DIST_DIR = BASE_DIR / "dist"
 MAX_BODY_BYTES = 16 * 1024
 BUILT_ASSET = re.compile(r"^/assets/[A-Za-z0-9_]+-[A-Za-z0-9_-]{6,}\.(js|css)$")
@@ -378,7 +378,7 @@ def create_server(port=0, dist_dir=DIST_DIR):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(prog="app.py")
+    parser = argparse.ArgumentParser(prog="python3 -m backend.app")
     parser.add_argument("--port", type=int, default=8000)
     return parser.parse_args()
 

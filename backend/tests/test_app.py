@@ -6,7 +6,12 @@ import threading
 import unittest
 from urllib.parse import urlencode
 
-import app
+from backend import app
+
+
+class RepositoryLayoutTests(unittest.TestCase):
+    def test_build_directory_is_at_repository_root(self):
+        self.assertEqual(Path(__file__).resolve().parents[2] / "dist", app.DIST_DIR)
 
 
 class AppHTTPTests(unittest.TestCase):
@@ -96,6 +101,14 @@ class AppHTTPTests(unittest.TestCase):
             "/refunds.py",
             "/package.json",
             "/src/main.tsx",
+            "/frontend/index.html",
+            "/frontend/src/main.tsx",
+            "/frontend/src/styles.css",
+            "/frontend/vite.config.ts",
+            "/backend/app.py",
+            "/backend/refunds.py",
+            "/legacy/app.js",
+            "/README.md",
             "/assets/index-demo123.js.map",
             "/assets/arbitrary.js",
             "/assets/../index.html",

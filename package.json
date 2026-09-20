@@ -5,11 +5,11 @@
   "description": "Local synthetic Northstar operations demonstration",
   "type": "module",
   "scripts": {
-    "build": "vite build",
-    "dev": "vite build --watch",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "build": "vite build --config frontend/vite.config.ts",
+    "dev": "vite build --watch --config frontend/vite.config.ts",
+    "typecheck": "tsc --noEmit --project frontend/tsconfig.json",
+    "test": "vitest run --config frontend/vite.config.ts",
+    "test:watch": "vitest --config frontend/vite.config.ts"
   },
   "dependencies": {
     "react": "19.1.1",

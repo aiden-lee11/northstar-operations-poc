@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { ApiError, api } from "./api";
-import { errorMessage, formatDate, stateSummary, titleCase } from "./format";
-import type { AuditEvent, Environment, Flag } from "./models";
-import { InlineState, SharedDialog } from "./SharedDialog";
+import { ApiError, api } from "../../lib/api";
+import { errorMessage, formatDate, stateSummary, titleCase } from "../../lib/format";
+import type { AuditEvent, Environment, Flag } from "../../lib/models";
+import { InlineState, SharedDialog } from "../../components/SharedDialog";
 
 export function FlagsView() {
   const [environment, setEnvironment] = useState<Environment>("staging");

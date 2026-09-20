@@ -3,7 +3,7 @@ import unittest
 import uuid
 from datetime import datetime
 
-from flags import ConflictError, FlagStore
+from backend.flags import ConflictError, FlagStore
 
 
 class FlagStoreTests(unittest.TestCase):

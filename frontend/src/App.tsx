@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { FlagsView } from "./FlagsView";
-import { RefundsView } from "./RefundsView";
+import { FlagsView } from "./features/flags/FlagsView";
+import { RefundsView } from "./features/refunds/RefundsView";
 
 type View = "refunds" | "flags";
 

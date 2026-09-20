@@ -1,9 +1,9 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { App } from "./App";
-import { api } from "./api";
-import type { AuditEvent, Environment, Flag, Refund } from "./models";
+import { App } from "../App";
+import { api } from "../lib/api";
+import type { AuditEvent, Environment, Flag, Refund } from "../lib/models";
 
 const refund: Refund = {
   id: "ref_0008",

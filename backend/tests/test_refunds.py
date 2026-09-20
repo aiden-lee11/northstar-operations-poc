@@ -1,6 +1,6 @@
 import unittest
 
-import refunds
+from backend import refunds
 
 
 class RefundsTests(unittest.TestCase):
