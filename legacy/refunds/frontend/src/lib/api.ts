@@ -6,6 +6,9 @@ import type {
   FlagListResponse,
   FlagRollbackPayload,
   FlagUpdatePayload,
+  Refund,
+  RefundListResponse,
+  RefundStatus,
 } from "./models";
 
 interface ErrorEnvelope {
@@ -57,6 +60,18 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
+  listRefunds(query: string, status: RefundStatus | "", signal?: AbortSignal) {
+    const params = new URLSearchParams();
+    if (query) params.set("query", query);
+    if (status) params.set("status", status);
+    const suffix = params.size ? `?${params.toString()}` : "";
+    return request<RefundListResponse>(`/api/refunds${suffix}`, { signal });
+  },
+
+  getRefund(id: string, signal?: AbortSignal) {
+    return request<Refund>(`/api/refunds/${encodeURIComponent(id)}`, { signal });
+  },
+
   listFlags(environment: Environment, signal?: AbortSignal) {
     const params = new URLSearchParams({ environment });
     return request<FlagListResponse>(`/api/flags?${params.toString()}`, { signal });

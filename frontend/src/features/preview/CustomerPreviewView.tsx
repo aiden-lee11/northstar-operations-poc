@@ -143,12 +143,21 @@ export function CustomerPreviewView({ active }: { active: boolean }) {
           </div>
 
           <div className="preview-main">
+            {selected.decision ? <NewCheckout account={selectedAccount} /> : <OldCheckout account={selectedAccount} />}
             <div className="panel decision-panel">
               <div className="panel-header">
                 <div><h2>Why {selectedAccount.label} sees this</h2><p>Read-only evaluation · no audit event is created</p></div>
                 <span className={`status-badge status-${selected.decision ? "enabled" : "disabled"}`}>{selected.decision ? "New checkout" : "Old checkout"}</span>
               </div>
               <p className="decision-reason">{reasonText(selected, selectedAccount.label)}</p>
+              <div className="bucket-visual">
+                <div className="bucket-scale" data-enabled={selected.enabled} role="img" aria-label={`Account bucket ${selected.bucket} of ${selected.bucket_count}; ${selected.rollout_percent}% configured rollout. Backend decision: ${selected.decision ? "included" : "excluded"}.`}>
+                  <span className="bucket-range" style={{ width: `${selected.threshold / selected.bucket_count * 100}%` }} />
+                  <span className="bucket-marker" style={{ left: `${selected.bucket / selected.bucket_count * 100}%` }} />
+                </div>
+                <div className="bucket-labels"><span>0</span><span>{(selected.bucket_count - 1).toLocaleString()}</span></div>
+                <p className="bucket-caption">Marker: this account · Shaded: configured window{selected.enabled ? "" : " (flag disabled)"}</p>
+              </div>
               <div className="detail-grid">
                 <div className="detail-item"><span>Account bucket</span><strong>{selected.bucket.toLocaleString()} of {selected.bucket_count.toLocaleString()}</strong></div>
                 <div className="detail-item"><span>Rollout</span><strong>{selected.rollout_percent}%</strong></div>
@@ -162,8 +171,6 @@ export function CustomerPreviewView({ active }: { active: boolean }) {
                 refreshes, configuration changes, and server restarts.
               </p>
             </div>
-
-            {selected.decision ? <NewCheckout account={selectedAccount} /> : <OldCheckout account={selectedAccount} />}
           </div>
         </div>
       ) : null}
@@ -184,7 +191,7 @@ function OldCheckout({ account }: { account: DemoAccount }) {
     <section className="panel checkout checkout-old" aria-label="Old checkout experience">
       <div className="panel-header"><div><h2>Checkout</h2><p>Current experience · single page</p></div><span className="env-badge">Old layout</span></div>
       <table className="checkout-table">
-        <thead><tr><th scope="col">Item</th><th scope="col">Qty</th><th scope="col">Price</th></tr></thead>
+        <thead><tr><th scope="col">Item</th><th scope="col">Qty</th><th scope="col">Line total</th></tr></thead>
         <tbody>
           {CART.map((line) => (
             <tr key={line.sku}><td>{line.name}<small> · {line.sku}</small></td><td>{line.quantity}</td><td>{line.price}</td></tr>
@@ -204,13 +211,13 @@ function NewCheckout({ account }: { account: DemoAccount }) {
     <section className="panel checkout checkout-new" aria-label="New checkout experience">
       <div className="panel-header"><div><h2>Express checkout</h2><p>Streamlined experience · three steps</p></div><span className="env-badge">New layout</span></div>
       <ol className="checkout-steps">
-        <li className="done"><strong>Cart</strong><small>{CART.length} items · {CART_TOTAL}</small></li>
+        <li className="done"><strong>Cart</strong><small>{CART.length} products · {CART_TOTAL}</small></li>
         <li className="done"><strong>Delivery</strong><small>Saved synthetic address for {account.label}</small></li>
         <li className="current"><strong>Review</strong><small>One-tap confirmation</small></li>
       </ol>
       <div className="checkout-summary-cards">
         {CART.map((line) => (
-          <div className="checkout-line" key={line.sku}><strong>{line.name}</strong><span>{line.quantity} × {line.price}</span></div>
+          <div className="checkout-line" key={line.sku}><strong>{line.name}</strong><span>{line.quantity} {line.quantity === 1 ? "item" : "items"} · {line.price}</span></div>
         ))}
       </div>
       <div className="checkout-total"><span>Order total</span><strong>{CART_TOTAL}</strong></div>

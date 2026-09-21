@@ -1,3 +1,8 @@
+const currencyFormatter = new Intl.NumberFormat(undefined, {
+  style: "currency",
+  currency: "USD",
+});
+
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   year: "numeric",
   month: "short",
@@ -12,6 +17,10 @@ const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   minute: "2-digit",
   timeZoneName: "short",
 });
+
+export function formatMoney(cents: number): string {
+  return currencyFormatter.format(cents / 100);
+}
 
 export function formatDate(value: string, withTime = false): string {
   const parsed = new Date(value);

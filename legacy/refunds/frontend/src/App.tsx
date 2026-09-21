@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { FlagsView } from "./features/flags/FlagsView";
 import { CustomerPreviewView } from "./features/preview/CustomerPreviewView";
+import { RefundsView } from "./features/refunds/RefundsView";
 
-type View = "flags" | "preview";
+type View = "refunds" | "flags" | "preview";
 
 function viewFromHash(): View {
+  if (window.location.hash === "#flags") return "flags";
   if (window.location.hash === "#preview") return "preview";
-  return "flags";
+  return "refunds";
 }
 
 export function App() {
@@ -42,6 +44,10 @@ export function App() {
           <span><strong>Northstar</strong><small>Operations</small></span>
         </div>
         <nav className="nav-list">
+          <button className={`nav-item${view === "refunds" ? " active" : ""}`} type="button" aria-current={view === "refunds" ? "page" : undefined} onClick={() => navigate("refunds")}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h16M7 4v3.5m10-3.5v3.5M5 7.5h14v12H5zM8 12h3m-3 3h6" /></svg>
+            Refunds
+          </button>
           <button className={`nav-item${view === "flags" ? " active" : ""}`} type="button" aria-current={view === "flags" ? "page" : undefined} onClick={() => navigate("flags")}>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M6 5h11l-2 4 2 4H6M9 17h9" /></svg>
             Feature flags
@@ -64,6 +70,7 @@ export function App() {
           <div className="demo-pill"><span aria-hidden="true" />Local demo / synthetic data</div>
         </header>
         <main ref={mainRef} tabIndex={-1}>
+          <div hidden={view !== "refunds"}><RefundsView /></div>
           {flagsVisited ? <div hidden={view !== "flags"}><FlagsView /></div> : null}
           {previewVisited ? <div hidden={view !== "preview"}><CustomerPreviewView active={view === "preview"} /></div> : null}
         </main>

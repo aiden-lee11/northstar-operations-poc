@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Why the assessment focuses on a bounded feature-flag demo, and the architecture and tradeoffs behind it.">
+  <title>Key decisions</title>
+  <style>
+    @page { size: Letter; margin: 0.65in 0.7in; }
+    * { box-sizing: border-box; }
+    html { color: #000; background: #fff; }
+    body { margin: 0; font: 11.5pt/1.4 Arial, Helvetica, sans-serif; }
+    main { width: min(100%, 8.5in); margin: 24px auto; padding: 0.65in 0.7in; }
+    h1 { margin: 0 0 18px; font-size: 16pt; line-height: 1.2; }
+    h2 { margin: 17px 0 6px; font-size: 11.5pt; line-height: 1.3; font-weight: 700; }
+    p { margin: 0 0 11px; }
+    a { color: #000; text-decoration: underline; text-underline-offset: 2px; }
+    @media screen and (max-width: 650px) { main { margin: 0; padding: 24px; } }
+    @media print { main { width: auto; margin: 0; padding: 0; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Key decisions</h1>
+    <section aria-labelledby="scope-title">
+      <h2 id="scope-title">Why I chose a feature-flag demo</h2>
+      <p>Given the assessment’s two-hour build allowance, I chose a bounded feature-flag workflow rather than an end-to-end KYC system. Even a realistic KYC review queue would involve sensitive evidence, verification providers, reviewer permissions, decision records and retention. Recreating its screen would understate the engineering work required to integrate and maintain it.</p>
+      <p>For this client, I would reserve from-scratch AI-assisted rebuilds for lightweight tools with manageable integration and maintenance needs. Working production tools should remain in place unless a specific bottleneck justifies replacing them. Devin can accelerate development, but engineers still own support, incidents and changing integrations. Those hours compete with product work.</p>
+      <p>The feature-flag example lets an operator change a rollout, see its effect on synthetic customers, and roll back. I chose it because the limited workflow is observable and testable without recreating several dependent systems. It illustrates a tool the team could consider owning, not proof that a production flag platform is lightweight or that future maintenance will be cheap.</p>
+    </section>
+    <section id="architecture" aria-labelledby="architecture-title">
+      <h2 id="architecture-title">Architecture and tradeoffs</h2>
+      <p>The React/TypeScript UI calls one Python server, which holds flag configuration, evaluation and change history in a shared store. The backend uses stable account buckets to choose which checkout each test account sees. Changes require a reason and a version check; rollback records a new change instead of deleting history. The baseline was built locally with Devin, and the evaluator and customer preview were implemented through <a href="https://github.com/aiden-lee11/northstar-operations-poc/pull/1">Devin Cloud</a>.</p>
+      <p>This is a small local demo and is nowhere near production-ready. Data is synthetic, held in memory and lost on restart. There is no authentication, durable audit storage or production deployment setup. It has not been connected to or tested against real external APIs, and it does not demonstrate regulatory compliance. Those integrations and security requirements would need separate engineering and review before real use.</p>
+    </section>
+  </main>
+</body>
+</html>

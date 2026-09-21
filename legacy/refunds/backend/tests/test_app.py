@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 import threading
 import unittest
+from urllib.parse import urlencode
 
 from backend import app
 
@@ -11,19 +12,6 @@ from backend import app
 class RepositoryLayoutTests(unittest.TestCase):
     def test_build_directory_is_at_repository_root(self):
         self.assertEqual(Path(__file__).resolve().parents[2] / "dist", app.DIST_DIR)
-
-    def test_refund_source_is_preserved_only_in_inactive_archive(self):
-        root = Path(__file__).resolve().parents[2]
-        for path in (
-            "backend/refunds.py",
-            "backend/tests/test_refunds.py",
-            "frontend/src/features/refunds/RefundsView.tsx",
-        ):
-            with self.subTest(path=path):
-                self.assertFalse((root / path).exists())
-                self.assertTrue((root / "legacy/refunds" / path).is_file())
-        self.assertTrue((root / "legacy/refunds/app.js").is_file())
-        self.assertFalse((root / "legacy/app.js").exists())
 
 
 class AppHTTPTests(unittest.TestCase):
@@ -120,15 +108,6 @@ class AppHTTPTests(unittest.TestCase):
             "/backend/app.py",
             "/backend/refunds.py",
             "/legacy/app.js",
-            "/legacy/refunds/README.md",
-            "/legacy/refunds/app.js",
-            "/legacy/refunds/backend/refunds.py",
-            "/legacy/refunds/frontend/src/features/refunds/RefundsView.tsx",
-            "/frontend/src/features/refunds/RefundsView.tsx",
-            "/docs/key-decisions.html",
-            "/docs/key-decisions.pdf",
-            "/presentation/index.html",
-            "/presentation/decision-brief.pdf",
             "/README.md",
             "/assets/index-demo123.js.map",
             "/assets/arbitrary.js",
@@ -169,26 +148,36 @@ class AppHTTPTests(unittest.TestCase):
             "validation_error",
         )
 
-    def test_archived_refund_api_is_unavailable(self):
-        for path in (
-            "/api/refunds",
-            "/api/refunds?query=order&status=completed",
-            "/api/refunds/ref_0008",
-        ):
-            with self.subTest(path=path):
-                self.assert_error(self.request("GET", path), 404, "not_found")
-                self.assert_error(self.post(path, self.update_payload()), 404, "not_found")
-        self.assert_error(self.request("DELETE", "/api/refunds/ref_0001"), 405, "method_not_allowed")
+    def test_refund_filters_summary_and_detail(self):
+        query = urlencode({"query": "order returned", "status": "completed"})
+        status, _, payload = self.request("GET", "/api/refunds?" + query)
+        self.assertEqual(200, status)
+        self.assertEqual(["ref_0005", "ref_0010", "ref_0015"], [item["id"] for item in payload["refunds"]])
+        self.assertEqual(20, payload["summary"]["total_count"])
+        self.assertEqual(122721, payload["summary"]["total_amount_cents"])
+        status, _, detail = self.request("GET", "/api/refunds/ref_0008")
+        self.assertEqual(200, status)
+        self.assertEqual("pay_1008", detail["payment_id"])
+        self.assertIn("unconfirmed", detail["timeline"][-1]["detail"])
+        self.assert_error(self.request("GET", "/api/refunds/missing"), 404, "not_found")
 
-    def test_flag_queries_reject_repeated_and_malformed_parameters(self):
-        for path in (
-            "/api/flags?environment=staging&environment=production",
-            "/api/audit?environment=staging&environment=production",
-            "/api/flags/new_checkout_flow/evaluations?account=acct_demo_cedar&account=acct_demo_aurora",
-            "/api/flags?environment",
-        ):
-            with self.subTest(path=path):
-                self.assert_error(self.request("GET", path), 400, "validation_error")
+    def test_invalid_refund_status_and_repeated_filter(self):
+        self.assert_error(
+            self.request("GET", "/api/refunds?status=refunded"),
+            400,
+            "validation_error",
+        )
+        self.assert_error(
+            self.request("GET", "/api/refunds?status=pending&status=failed"),
+            400,
+            "validation_error",
+        )
+
+    def test_refunds_are_read_only(self):
+        result = self.post("/api/refunds/ref_0001", self.update_payload())
+        self.assert_error(result, 404, "not_found")
+        result = self.request("DELETE", "/api/refunds/ref_0001")
+        self.assert_error(result, 405, "method_not_allowed")
 
     def test_malformed_nonobject_and_payload_key_validation(self):
         headers = {"Content-Type": "application/json", "X-Demo-Request": "1"}

@@ -5,6 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
 
+from . import refunds
 from .flags import ConflictError, FlagStore, demo_accounts
 
 
@@ -13,6 +14,7 @@ DIST_DIR = BASE_DIR / "dist"
 MAX_BODY_BYTES = 16 * 1024
 BUILT_ASSET = re.compile(r"^/assets/[A-Za-z0-9_]+-[A-Za-z0-9_-]{6,}\.(js|css)$")
 ENVIRONMENTS = {"development", "staging", "production"}
+REFUND_DETAIL = re.compile(r"^/api/refunds/([^/]+)$")
 FLAG_UPDATE = re.compile(r"^/api/flags/([^/]+)$")
 FLAG_ROLLBACK = re.compile(r"^/api/flags/([^/]+)/rollback$")
 FLAG_EVALUATIONS = re.compile(r"^/api/flags/([^/]+)/evaluations$")
@@ -58,6 +60,32 @@ class DemoRequestHandler(BaseHTTPRequestHandler):
             if not self._validate_query(parsed.query, set()):
                 return
             self._send_json(200, {"status": "ok", "demo": True})
+            return
+        if parsed.path == "/api/refunds":
+            params = self._query_values(parsed.query, {"query", "status"})
+            if params is None:
+                return
+            try:
+                items = refunds.list_refunds(
+                    query=params.get("query", ""), status=params.get("status", "")
+                )
+            except ValueError as error:
+                self._error(400, "validation_error", str(error))
+                return
+            self._send_json(
+                200, {"refunds": items, "summary": refunds.refund_summary()}
+            )
+            return
+        detail_match = REFUND_DETAIL.fullmatch(parsed.path)
+        if detail_match:
+            if not self._validate_query(parsed.query, set()):
+                return
+            refund_id = unquote(detail_match.group(1))
+            item = refunds.get_refund(refund_id)
+            if item is None:
+                self._error(404, "not_found", "Refund not found")
+                return
+            self._send_json(200, item)
             return
         if parsed.path == "/api/flags":
             params = self._query_values(parsed.query, {"environment"})

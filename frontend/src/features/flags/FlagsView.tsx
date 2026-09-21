@@ -104,15 +104,17 @@ export function FlagsView() {
                 const rollbackSource = matchingAudit(flag.key)[0] ?? null;
                 const canRollback = rollbackSource !== null;
                 return (
-                  <article className="flag-card" key={flag.key}>
+                  <article className="flag-card" key={flag.key} data-connected={flag.key === "new_checkout_flow"}>
                     <div className="flag-card-head"><div><h2>{flag.name}</h2><code className="flag-key">{flag.key}</code></div><span className={`risk-badge risk-${flag.risk}`}>{titleCase(flag.risk)} risk</span></div>
                     <p className="flag-description">{flag.description}</p>
                     <div className="flag-meta"><div className="flag-meta-item"><span>Owner</span><strong>{flag.owner}</strong></div><div className="flag-meta-item"><span>Version</span><strong>v{flag.version}</strong></div></div>
                     <div className="flag-state-line"><span className={`status-badge status-${flag.enabled ? "enabled" : "disabled"}`}>{flag.enabled ? "Enabled" : "Disabled"}</span><div className="flag-state-detail"><span>Rollout</span><strong>{flag.rollout_percent}%</strong></div></div>
+                    <meter className="rollout-meter" min={0} max={100} value={flag.rollout_percent} aria-label={`${flag.name} configured rollout`} />
                     <div className="flag-actions">
                       <button className="primary-button" type="button" disabled={mutationPending} onClick={() => setChangeFlag(flag)}>Review change</button>
                       <button className="secondary-button" type="button" disabled={!canRollback || mutationPending} title={canRollback ? "Review restoration of the prior configuration" : "No audit history is available for this flag"} onClick={() => rollbackSource && setRollbackReview({ flag, source: rollbackSource })}>Rollback</button>
                     </div>
+                    {flag.key === "new_checkout_flow" ? <a className="consumer-link" href="#preview">Open customer preview <span aria-hidden="true">→</span></a> : null}
                   </article>
                 );
               })}

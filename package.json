@@ -9,7 +9,8 @@
     "dev": "vite build --watch --config frontend/vite.config.ts",
     "typecheck": "tsc --noEmit --project frontend/tsconfig.json",
     "test": "vitest run --config frontend/vite.config.ts",
-    "test:watch": "vitest --config frontend/vite.config.ts"
+    "test:watch": "vitest --config frontend/vite.config.ts",
+    "test:slides": "node --test presentation/deck.test.mjs"
   },
   "dependencies": {
     "react": "19.1.1",

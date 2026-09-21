@@ -10,7 +10,35 @@ import type {
   Flag,
   FlagEvaluation,
   FlagEvaluationResponse,
+  Refund,
 } from "../lib/models";
+
+const refund: Refund = {
+  id: "ref_0008",
+  payment_id: "pay_1008",
+  customer: "Lucas Bennett <lucas.bennett@example.test>",
+  amount_cents: 6400,
+  currency: "USD",
+  reason: "subscription canceled",
+  status: "failed",
+  created_at: "2025-01-20T09:45:00Z",
+  updated_at: "2025-01-21T17:05:00Z",
+  owner: "Maya Chen",
+  provider_reference: "prv_us_0008",
+  timeline: [
+    { timestamp: "2025-01-20T09:45:00Z", event: "refund_requested", detail: "Refund requested for subscription canceled." },
+    { timestamp: "2025-01-21T17:05:00Z", event: "refund_failed", detail: "The provider timed out; the outcome is unconfirmed and must be reconciled before any retry." },
+  ],
+};
+
+const summary = {
+  total_count: 20,
+  total_amount_cents: 122721,
+  pending_count: 4,
+  failed_count: 4,
+  completed_count: 8,
+  currency: "USD" as const,
+};
 
 function makeFlag(environment: Environment = "staging", overrides: Partial<Flag> = {}): Flag {
   return {
@@ -80,6 +108,10 @@ function installFetch(handler: (path: string, init?: RequestInit) => Response | 
   return mock;
 }
 
+function refundList(items: Refund[]) {
+  return jsonResponse({ refunds: items, summary });
+}
+
 function flagHandler({
   environment = "staging",
   flags = [makeFlag(environment)],
@@ -90,6 +122,7 @@ function flagHandler({
   audit?: AuditEvent[];
 } = {}) {
   return (path: string) => {
+    if (path.startsWith("/api/refunds")) return refundList([refund]);
     if (path.startsWith("/api/flags?")) return jsonResponse({ flags, environment });
     if (path.startsWith("/api/audit?")) return jsonResponse({ events: audit, environment });
     throw new Error(`Unexpected request: ${path}`);
@@ -97,7 +130,7 @@ function flagHandler({
 }
 
 beforeEach(() => {
-  window.history.replaceState(null, "", "/");
+  window.history.replaceState(null, "", "#refunds");
 });
 
 describe("api cancellation", () => {
@@ -115,46 +148,115 @@ describe("api cancellation", () => {
   });
 });
 
-describe("two-view navigation", () => {
-  it.each(["", "#flags", "#refunds", "#unknown"])("opens flag administration for %s without archived requests", async (hash) => {
-    window.history.replaceState(null, "", hash || "/");
-    const fetchMock = installFetch(flagHandler());
-    render(<App />);
-
-    expect(await screen.findByText("New checkout flow")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Feature flags", level: 1 })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Feature flags" })).toHaveAttribute("aria-current", "page");
-    expect(within(screen.getByRole("navigation")).getAllByRole("button")).toHaveLength(2);
-    expect(screen.queryByRole("button", { name: "Refunds" })).not.toBeInTheDocument();
-    expect(fetchMock.mock.calls.map(([input]) => requestPath(input))).toEqual([
-      "/api/flags?environment=staging",
-      "/api/audit?environment=staging",
-    ]);
-  });
-
-  it("supports the preview deep link, both navigation buttons, and hash changes", async () => {
-    window.history.replaceState(null, "", "#preview");
+describe("refund operations", () => {
+  it("searches and filters refunds and opens historical detail", async () => {
     const fetchMock = installFetch((path) => {
-      if (path.startsWith("/api/flags/new_checkout_flow/evaluations")) return jsonResponse(evaluationResponse(makeFlag()));
-      return flagHandler()(path);
+      if (path === "/api/refunds/ref_0008") return jsonResponse(refund);
+      if (path.includes("status=failed")) return refundList([refund]);
+      if (path.includes("query=Lucas")) return refundList([refund]);
+      return refundList([refund]);
     });
     const user = userEvent.setup();
     render(<App />);
 
-    expect(await screen.findByRole("region", { name: "New checkout experience" })).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    await user.click(screen.getByRole("button", { name: "Feature flags" }));
-    expect(await screen.findByRole("heading", { name: "Feature flags", level: 1 })).toBeInTheDocument();
-    expect(window.location.hash).toBe("#flags");
-    expect(screen.getByRole("main")).toHaveFocus();
-    await user.click(screen.getByRole("button", { name: "Customer preview" }));
-    expect(window.location.hash).toBe("#preview");
-    expect(screen.getByRole("button", { name: "Customer preview" })).toHaveAttribute("aria-current", "page");
-    await act(async () => {
-      window.history.replaceState(null, "", "#flags");
-      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    expect(await screen.findByText("ref_0008")).toBeInTheDocument();
+    expect(screen.getByText("$1,227.21")).toBeInTheDocument();
+    await user.type(screen.getByRole("searchbox", { name: "Search refunds" }), "Lucas");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("query=Lucas"), expect.any(Object)));
+    await user.clear(screen.getByRole("searchbox", { name: "Search refunds" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Filter by refund status" }), "failed");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("status=failed"), expect.any(Object)));
+
+    await user.click(screen.getByRole("button", { name: "View details for ref_0008" }));
+    const dialog = await screen.findByRole("dialog", { name: "ref_0008" });
+    expect(within(dialog).getByText("pay_1008")).toBeInTheDocument();
+    expect(within(dialog).getAllByText(/outcome is unconfirmed/)).toHaveLength(2);
+    expect(within(dialog).getAllByText(/Historical ·/).length).toBeGreaterThan(1);
+  });
+
+  it("shows empty results and clears filters", async () => {
+    installFetch((path) => path.includes("query=missing") ? refundList([]) : refundList([refund]));
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("ref_0008");
+    await user.type(screen.getByRole("searchbox", { name: "Search refunds" }), "missing");
+    expect(await screen.findByText(/No synthetic records match/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(await screen.findByText("ref_0008")).toBeInTheDocument();
+  });
+
+  it("shows a useful refund error and retries", async () => {
+    let failed = false;
+    installFetch(() => {
+      if (!failed) {
+        failed = true;
+        return Promise.reject(new Error("server unavailable"));
+      }
+      return refundList([refund]);
     });
-    expect(screen.getByRole("heading", { name: "Feature flags", level: 1 })).toBeInTheDocument();
+    const user = userEvent.setup();
+    render(<App />);
+    expect(await screen.findByText(/Could not load refunds: server unavailable/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("ref_0008")).toBeInTheDocument();
+  });
+
+  it("does not let a deferred old filter response replace newer results", async () => {
+    const oldBody = deferred<unknown>();
+    const oldRefund = { ...refund, id: "ref_old", customer: "Old filter result" };
+    const newRefund = { ...refund, id: "ref_new", customer: "New filter result" };
+    const fetchMock = installFetch((path) => {
+      if (path.includes("query=old")) return deferredJsonResponse(oldBody.promise);
+      if (path.includes("query=new")) return refundList([newRefund]);
+      return refundList([refund]);
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("ref_0008");
+
+    const search = screen.getByRole("searchbox", { name: "Search refunds" });
+    await user.type(search, "old");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("query=old"), expect.any(Object)));
+    await user.clear(search);
+    await user.type(search, "new");
+    expect(await screen.findByText("ref_new")).toBeInTheDocument();
+
+    await act(async () => {
+      oldBody.resolve({ refunds: [oldRefund], summary });
+      await oldBody.promise;
+    });
+
+    expect(screen.getByText("ref_new")).toBeInTheDocument();
+    expect(screen.queryByText("ref_old")).not.toBeInTheDocument();
+  });
+
+  it("does not let deferred old details replace the newly selected refund", async () => {
+    const oldBody = deferred<unknown>();
+    const oldRefund = { ...refund, id: "ref_old", payment_id: "pay_old", customer: "Old detail customer" };
+    const newRefund = { ...refund, id: "ref_new", payment_id: "pay_new", customer: "New detail customer" };
+    installFetch((path) => {
+      if (path === "/api/refunds/ref_old") return deferredJsonResponse(oldBody.promise);
+      if (path === "/api/refunds/ref_new") return jsonResponse(newRefund);
+      return refundList([oldRefund, newRefund]);
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("ref_old");
+
+    await user.click(screen.getByRole("button", { name: "View details for ref_old" }));
+    await screen.findByRole("dialog", { name: "ref_old" });
+    await user.click(screen.getByRole("button", { name: "Close refund details" }));
+    await user.click(screen.getByRole("button", { name: "View details for ref_new" }));
+    const dialog = await screen.findByRole("dialog", { name: "ref_new" });
+    expect(within(dialog).getByText("pay_new")).toBeInTheDocument();
+
+    await act(async () => {
+      oldBody.resolve(oldRefund);
+      await oldBody.promise;
+    });
+
+    expect(within(dialog).getByText("pay_new")).toBeInTheDocument();
+    expect(within(dialog).queryByText("pay_old")).not.toBeInTheDocument();
   });
 });
 
@@ -162,6 +264,7 @@ describe("feature flag operations", () => {
   it("isolates environment requests and displays the selected response", async () => {
     const fetchMock = installFetch((path) => {
       const environment = new URL(path, "http://local.test").searchParams.get("environment") as Environment;
+      if (path.startsWith("/api/refunds")) return refundList([refund]);
       if (path.startsWith("/api/flags?")) return jsonResponse({ flags: [makeFlag(environment)], environment });
       if (path.startsWith("/api/audit?")) return jsonResponse({ events: [], environment });
       throw new Error(`Unexpected request: ${path}`);
@@ -179,6 +282,7 @@ describe("feature flag operations", () => {
   it("does not let a deferred old environment body replace the selected environment", async () => {
     const stagingBody = deferred<unknown>();
     const fetchMock = installFetch((path) => {
+      if (path.startsWith("/api/refunds")) return refundList([refund]);
       const environment = new URL(path, "http://local.test").searchParams.get("environment") as Environment;
       if (path.startsWith("/api/flags?") && environment === "staging") return deferredJsonResponse(stagingBody.promise);
       if (path.startsWith("/api/flags?")) return jsonResponse({ flags: [makeFlag(environment, { name: "Production current flag" })], environment });
@@ -204,6 +308,7 @@ describe("feature flag operations", () => {
   it("does not show an error from a superseded environment request", async () => {
     const stagingResponse = deferred<Response>();
     const fetchMock = installFetch((path) => {
+      if (path.startsWith("/api/refunds")) return refundList([refund]);
       const environment = new URL(path, "http://local.test").searchParams.get("environment") as Environment;
       if (path.startsWith("/api/flags?") && environment === "staging") return stagingResponse.promise;
       if (path.startsWith("/api/flags?")) return jsonResponse({ flags: [makeFlag(environment, { name: "Production current flag" })], environment });
@@ -235,6 +340,7 @@ describe("feature flag operations", () => {
         changed = true;
         return jsonResponse(makeFlag("staging", { enabled: false, rollout_percent: 25, version: 2 }));
       }
+      if (path.startsWith("/api/refunds")) return refundList([refund]);
       if (path.startsWith("/api/flags?")) return jsonResponse({ flags: [changed ? makeFlag("staging", { enabled: false, rollout_percent: 25, version: 2 }) : makeFlag()], environment: "staging" });
       if (path.startsWith("/api/audit?")) return jsonResponse({ events: changed ? [makeAudit()] : [], environment: "staging" });
       throw new Error(`Unexpected request: ${path}`);
@@ -273,6 +379,7 @@ describe("feature flag operations", () => {
         posts.push(init);
         return jsonResponse(makeFlag("production", { enabled: true, rollout_percent: 10, version: 2 }));
       }
+      if (path.startsWith("/api/refunds")) return refundList([refund]);
       const environment = new URL(path, "http://local.test").searchParams.get("environment") as Environment;
       if (path.startsWith("/api/flags?")) return jsonResponse({ flags: [makeFlag(environment)], environment });
       if (path.startsWith("/api/audit?")) return jsonResponse({ events: [], environment });
@@ -317,6 +424,7 @@ describe("feature flag operations", () => {
         });
         return jsonResponse(makeFlag("staging", { version: 3 }));
       }
+      if (path.startsWith("/api/refunds")) return refundList([refund]);
       if (path.startsWith("/api/flags?")) return jsonResponse({ flags: [makeFlag("staging", { enabled: false, rollout_percent: 25, version: 2 })], environment: "staging" });
       if (path.startsWith("/api/audit?")) return jsonResponse({ events: [event], environment: "staging" });
       throw new Error(`Unexpected request: ${path}`);
@@ -356,6 +464,7 @@ describe("feature flag operations", () => {
         }
         return jsonResponse(makeFlag("staging", { version: 4 }));
       }
+      if (path.startsWith("/api/refunds")) return refundList([refund]);
       if (path.startsWith("/api/flags?")) {
         flagLoads += 1;
         return flagLoads === 1
@@ -472,13 +581,10 @@ function evaluationResponse(flag: Flag, buckets: [number, number] = [1200, 8800]
 }
 
 describe("customer preview", () => {
-  beforeEach(() => {
-    window.history.replaceState(null, "", "#preview");
-  });
-
   it("renders the backend decision, explanation, and matching checkout per account", async () => {
     const flag = makeFlag("staging", { enabled: true, rollout_percent: 25, version: 4 });
     installFetch((path) => {
+      if (path.startsWith("/api/refunds")) return refundList([refund]);
       if (path.startsWith("/api/flags/new_checkout_flow/evaluations")) return jsonResponse(evaluationResponse(flag));
       throw new Error(`Unexpected request: ${path}`);
     });
@@ -494,19 +600,18 @@ describe("customer preview", () => {
     expect(bucketTrace.querySelector(".bucket-range")).toHaveStyle({ width: "25%" });
     expect(bucketTrace.querySelector(".bucket-marker")).toHaveStyle({ left: "12%" });
     expect(within(screen.getByRole("region", { name: "New checkout experience" })).getByText("2 items · $46.00")).toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: "New checkout experience" })).getByRole("button", { name: /disabled in demo/ })).toBeDisabled();
     expect(within(screen.getByRole("region", { name: "Customer preview" })).getByText("v4")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Basalt Test Account/ }));
     expect(await screen.findByRole("region", { name: "Old checkout experience" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "New checkout experience" })).not.toBeInTheDocument();
     expect(screen.getByText(/bucket 8,800 falls outside the 25% rollout/)).toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: "Old checkout experience" })).getByRole("button", { name: /disabled in demo/ })).toBeDisabled();
   });
 
   it("keeps the old checkout when the backend disables an account inside the configured window", async () => {
     const flag = makeFlag("staging", { enabled: false, rollout_percent: 25, version: 2 });
     installFetch((path) => {
+      if (path.startsWith("/api/refunds")) return refundList([refund]);
       if (path.startsWith("/api/flags/new_checkout_flow/evaluations")) return jsonResponse(evaluationResponse(flag));
       throw new Error(`Unexpected request: ${path}`);
     });
@@ -525,6 +630,7 @@ describe("customer preview", () => {
     const production = makeFlag("production", { enabled: false, rollout_percent: 0, version: 1 });
     let stagingVersion = staging;
     const fetchMock = installFetch((path) => {
+      if (path.startsWith("/api/refunds")) return refundList([refund]);
       if (path.startsWith("/api/flags/new_checkout_flow/evaluations")) {
         const environment = new URL(path, "http://local.test").searchParams.get("environment") as Environment;
         return jsonResponse(evaluationResponse(environment === "production" ? production : stagingVersion));
@@ -558,6 +664,7 @@ describe("customer preview", () => {
         flag = makeFlag("staging", { enabled: true, rollout_percent: 25, version: 2 });
         return jsonResponse(flag);
       }
+      if (path.startsWith("/api/refunds")) return refundList([refund]);
       if (path.startsWith("/api/flags/new_checkout_flow/evaluations")) return jsonResponse(evaluationResponse(flag));
       if (path.startsWith("/api/flags?")) return jsonResponse({ flags: [flag], environment: "staging" });
       if (path.startsWith("/api/audit?")) return jsonResponse({ events: [], environment: "staging" });
@@ -585,6 +692,7 @@ describe("customer preview", () => {
     const staging = makeFlag("staging", { enabled: true, rollout_percent: 25, version: 2 });
     const production = makeFlag("production", { enabled: true, rollout_percent: 100, version: 5 });
     const fetchMock = installFetch((path) => {
+      if (path.startsWith("/api/refunds")) return refundList([refund]);
       if (path.startsWith("/api/flags/new_checkout_flow/evaluations")) {
         const environment = new URL(path, "http://local.test").searchParams.get("environment") as Environment;
         if (environment === "staging") return deferredJsonResponse(stagingBody.promise);

@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="A five-slide decision brief on Devin, Cursor, and internal-tool ownership, with a live Northstar demo.">
+  <title>Northstar — Internal Tools Decision Brief</title>
+  <link rel="stylesheet" href="slides.css">
+  <script src="slides.js" defer></script>
+</head>
+<body>
+  <header class="deck-header">
+    <a class="deck-brand" href="#slide-1" aria-label="Return to first slide"><span class="brand-symbol" aria-hidden="true">N</span><span>Northstar <span class="brand-divider">/</span> <span class="brand-secondary">Decision brief</span></span></a>
+    <span class="header-label">Internal tools · VP of Engineering</span>
+  </header>
+
+  <main class="deck" aria-label="Presentation slides">
+    <section class="slide title-slide" data-title="Recommendation" data-cue="0:00–0:20 · Recommendation" aria-labelledby="slide-title-1">
+      <div class="slide-topline"><span>Where Devin fits today</span><span>01 / 05</span></div>
+      <div class="title-layout">
+        <div>
+          <p class="eyebrow">My recommendation</p>
+          <h1 id="slide-title-1" tabindex="-1">Build the small<br>tools with Devin.<br><em>Keep the big ones.</em></h1>
+          <p class="title-summary">Devin can build the kind of small internal tools your team already builds.</p>
+        </div>
+        <div class="decision-stack">
+          <div class="decision-item"><span class="item-number">01</span><div><h2>Small tools: build them</h2><p>Simple screens and workflows are quick to build and easy to keep running.</p></div></div>
+          <div class="decision-item"><span class="item-number">02</span><div><h2>Big tools: wait</h2><p>Rebuilding KYC means real integration work and ongoing maintenance for your team.</p></div></div>
+          <p class="stack-note">Devin writes the code.<br>Your team still supports it afterward.</p>
+        </div>
+      </div>
+      <div class="slide-foot"><span>Keep the three Power Apps tools running for now.</span><span>Start small. Learn. Then decide.</span></div>
+      <template class="speaker-notes">
+        <h3>0:00–0:20 · Say the recommendation plainly</h3>
+        <p>“Devin can build lightweight internal tools like the ones your team already builds. I would not rebuild the bigger tools yet — especially KYC — because that is significant engineering work plus ongoing maintenance for your team.”</p>
+        <p>Keep it short. Do not open with tooling detail or the repository.</p>
+        <h3>Navigate</h3><p>Next: what the current tools do for them today.</p>
+      </template>
+    </section>
+
+    <section class="slide" data-title="What you have today" data-cue="0:20–0:55 · What the current tools do" aria-labelledby="slide-title-2" hidden>
+      <div class="slide-topline"><span>What you are paying for today</span><span>02 / 05</span></div>
+      <h2 class="slide-title" id="slide-title-2" tabindex="-1">What your tools<br><em>do for you today.</em></h2>
+      <div class="vendor-grid">
+        <article class="vendor"><p class="eyebrow">Runs your apps</p><h3>Power Apps</h3><p class="vendor-thesis">It hosts and runs the three tools.</p><ul><li>Non-engineers can build screens</li><li>Hosting and data are handled</li><li>Connects to your other systems</li></ul><p class="vendor-question">Drop it and your team takes on that work.</p></article>
+        <article class="vendor"><p class="eyebrow">Helps engineers code</p><h3>Cursor</h3><p class="vendor-thesis">Engineers write code faster with it.</p><ul><li>Works alongside them in the editor</li><li>Can also run tasks in the cloud</li><li>Already part of daily work</li></ul><p class="vendor-question">It could build these tools too.</p></article>
+        <article class="vendor vendor-accent"><p class="eyebrow">Does the work for you</p><h3>Devin</h3><p class="vendor-thesis">You hand it a task; it builds it.</p><ul><li>Writes code and tests</li><li>Works on its own machine</li><li>Opens pull requests to review</li></ul><p class="vendor-question">You still review and maintain the result.</p></article>
+      </div>
+      <div class="spend-line"><span><strong>$200K</strong> Power Apps / year</span><span><strong>$500K</strong> AI tools / year</span><p>Numbers from the brief.<br><b>Dropping a tool may not save all of it.</b></p></div>
+      <div class="slide-foot"><span>Cursor and Devin both do engineering work. Power Apps does something different.</span><span>Different jobs. Different costs.</span></div>
+      <template class="speaker-notes">
+        <h3>0:20–0:55 · Keep it simple</h3>
+        <p>“Power Apps runs your three tools and lets non-engineers build screens. Cursor helps engineers write code, and it can run cloud tasks too. Devin takes a task and builds it, then gives you a pull request to review.”</p>
+        <p>“The $200K and $500K are numbers from the brief, not an audited bill. If you move one app off Power Apps and the rest stay, you may not save much.”</p>
+        <p>Do not imply Power Apps makes KYC automatically compliant, or that cloud agents are unique to Devin.</p>
+        <h3>Navigate</h3><p>Next: which tools are worth rebuilding, and what we still need to learn.</p>
+      </template>
+    </section>
+
+    <section class="slide discovery-slide" data-title="Which tools to rebuild" data-cue="0:55–1:35 · What to rebuild, and what we still need to know" aria-labelledby="slide-title-3" hidden>
+      <div class="slide-topline"><span>Not every tool is the same size of job</span><span>03 / 05</span></div>
+      <h2 class="slide-title" id="slide-title-3" tabindex="-1">Which tools are<br><em>worth rebuilding?</em></h2>
+      <div class="discovery-layout">
+        <div class="complexity-spectrum">
+          <p class="eyebrow">Rough sense of the work involved</p>
+          <div class="complexity-axis"><span>Easy to own</span><span aria-hidden="true">→</span><span>Hard to own</span></div>
+          <div class="complexity-lanes" role="group" aria-label="Small tools are easier to own; tools that connect to other systems are harder; a KYC queue is hardest.">
+            <div class="complexity-node complexity-low" data-complexity="bounded"><strong>Small tools</strong><span>A few screens, simple rules</span></div>
+            <div class="complexity-node complexity-middle" data-complexity="connected"><strong>Tools that pull real data</strong><span>Need live systems and access rules</span></div>
+            <div class="complexity-node complexity-high" data-complexity="regulated"><strong>KYC review queue</strong><span>Customer documents, audit trail, providers</span></div>
+          </div>
+          <p class="complexity-note">A rough guide, not a measurement. Any tool gets harder as it connects to more systems.</p>
+        </div>
+        <div class="bottleneck-cases">
+          <p class="eyebrow">What we still need to ask you</p>
+          <article><h3>Is it a few people?</h3><p>Two engineers want one extra feature.</p><strong>Try changing Power Apps first. Cheaper and faster.</strong></article>
+          <article><h3>Is it everyone, every week?</h3><p>Teams keep losing hours to the same tool.</p><strong>Worth pricing out a rebuild and who maintains it.</strong></article>
+          <p class="bottleneck-rule">The brief doesn’t say which one it is. That answer changes the recommendation.</p>
+        </div>
+      </div>
+      <div class="slide-foot"><span>I had two hours to build, so I built a small tool, not a KYC system.</span><span>Find the real problem first.</span></div>
+      <template class="speaker-notes">
+        <h3>0:55–1:35 · Size the job, then ask what is actually slow</h3>
+        <p>“These tools aren't the same size of job. A small tool is a few screens. A KYC queue handles customer documents, needs an audit trail, and talks to verification providers. That is a much bigger commitment.”</p>
+        <p>“I had a two-hour build allowance, so I built a small tool rather than a KYC system.”</p>
+        <p>“The brief doesn't say what's actually slowing your team down. If two engineers want one extra feature, I'd try changing Power Apps first. If everyone is losing hours every week, that's worth pricing out properly — including who maintains it afterward.”</p>
+        <p>The chart is a rough guide, not a measurement of their systems. Two people can still own something critical, so ask how often it happens, which tasks break, and what it costs the business.</p>
+        <h3>Navigate</h3><p>Next: show the small tool I built.</p>
+      </template>
+    </section>
+
+    <section class="slide demo-slide" data-title="What I built" data-cue="1:35–3:50 · The flag tool and how it was built" aria-labelledby="slide-title-4" hidden>
+      <div class="slide-topline"><span>A small tool, built with Devin, running locally</span><span>04 / 05</span></div>
+      <h2 class="slide-title" id="slide-title-4" tabindex="-1">A small tool<br><em>Devin built.</em></h2>
+      <div class="workflow-grid">
+        <article class="workflow-card" data-workflow="flags"><p class="eyebrow">01 · What the operator does</p><h3>Turn a feature on</h3><p class="workflow-path">Off → 25% → 100% → undo</p><p>Every change needs a reason and is listed in the history.</p><div class="workflow-boundary"><strong>The change is the easy part</strong><span>What matters is whether customers actually see it.</span></div></article>
+        <article class="workflow-card workflow-accent" data-workflow="preview"><p class="eyebrow">02 · What the customer sees</p><h3>The checkout changes</h3><p class="workflow-path">Account → decision → screen</p><p>At 25%, Cedar gets the new checkout and Aurora does not. Undo puts it back.</p><div class="workflow-boundary"><strong>A demo, not a real system</strong><span>Test data only. Nothing connects to live systems.</span></div></article>
+      </div>
+      <div class="demo-bottom">
+        <div><p class="eyebrow">Turn it on → see who gets it → undo it</p><p class="supporting-scope">This is the size of tool I would build with Devin today.<br>It runs on my laptop with test data.</p></div>
+        <div class="demo-links"><a class="button button-primary" data-demo-link href="http://127.0.0.1:8000/#flags" target="_blank" rel="noopener noreferrer">Open flag admin <span aria-hidden="true">↗</span></a><a class="text-link" data-demo-link href="http://127.0.0.1:8000/#preview" target="_blank" rel="noopener noreferrer">Open customer preview ↗</a><a class="text-link" href="https://github.com/aiden-lee11/northstar-operations-poc/pull/1" target="_blank" rel="noopener noreferrer">The code Devin wrote ↗</a></div>
+      </div>
+      <div class="slide-foot"><span>Test accounts and a fake checkout. No real customers and no payments.</span><span>It works, but it is not production software.</span></div>
+      <template class="speaker-notes">
+        <h3>1:35–1:50 · Set up the demo</h3><p>“This is the size of tool I would build with Devin today. It runs locally with test data. An operator turns a feature on for some customers and can undo it.”</p>
+        <h3>1:50–3:30 · Run it: on, who gets it, undo</h3>
+        <p>Before recording: use one app tab and its sidebar to switch between admin and preview; returning to the preview refreshes its decisions. Set BOTH views to Staging; disable new_checkout_flow first with reason “Prepare the synthetic demo”. Keep the deck and Cloud evidence in separate tabs. Cedar Test Account (bucket 1,543) is inside the 25% cohort; Aurora Test Account (bucket 9,289) is outside. If using two app tabs instead, select Refresh decisions after every admin change.</p>
+        <ol><li>Review new_checkout_flow in Staging. Preview while disabled: old checkout.</li><li>Admin: enable at 25%, enter “Enable the synthetic pilot”.</li><li>Preview: Cedar receives new; Aurora stays old. Show the backend decision trace; refresh to demonstrate stable identity evaluation.</li><li>Admin: raise to 100% with reason “Expand the synthetic pilot”. Preview Aurora: new checkout.</li><li>Admin: roll back to 25% with “Restore the pilot cohort”. Preview Aurora: old; Cedar: new. Point to the new rollback history event.</li></ol>
+        <p>“This is a real working decision from the backend, not a mockup. But it resets when I restart the server, and it isn't connected to anything real.”</p>
+        <h3>3:30–3:50 · Show the Devin work</h3><p>Open the pull request and the task you gave Devin. “I built the first version locally with Devin and gave the rest to Devin Cloud: write the logic, build the customer view, add tests.” Show the tests it ran. Don't call that CI, and don't claim it beat Cursor — that wasn't measured. <a href="https://app.devin.ai/sessions/5d7c24a6d0e64fedac1df5cbee9181a4" target="_blank" rel="noopener noreferrer">Open the Devin session</a>.</p>
+        <h3>Navigate</h3><p>Back to the deck for the last slide. The timer keeps running while you demo.</p>
+      </template>
+    </section>
+
+    <section class="slide pilot-slide" data-title="What to do next" data-cue="3:50–4:45 · A one-month trial" aria-labelledby="slide-title-5" hidden>
+      <div class="slide-topline"><span>Devin and Cursor overlap heavily — prove it with real work</span><span>05 / 05</span></div>
+      <h2 class="slide-title" id="slide-title-5" tabindex="-1">Run a one-month<br><em>Devin pilot.</em></h2>
+      <p class="pilot-lead">There is a lot of overlap between the two tools, and we believe Devin does everything Cursor does for your team and more. A month of real work is how you confirm that — give a group of engineers Devin, keep the rest on Cursor, and build one small internal tool along the way.</p>
+      <div class="scorecard"><span class="eyebrow">What to watch during the month</span><div><strong>Do they use it?</strong><span>Daily use, or back to Cursor</span></div><div><strong>Is the work good?</strong><span>What ships, what gets thrown out</span></div><div><strong>How much babysitting?</strong><span>Review and rework time</span></div><div><strong>What does it cost?</strong><span>Licenses, usage, upkeep</span></div></div>
+      <div class="pilot-decisions"><div><strong>Can Devin replace Cursor?</strong><p>If engineers prefer it and the work holds up, you stop paying for both.</p></div><div><strong>Was the tool worth building?</strong><p>Only if it earns the maintenance it creates.</p></div></div>
+      <div class="slide-foot"><span>Also worth reviewing: the apps people already built on their laptops.</span><span>Paying for both only makes sense if both earn it.</span></div>
+      <template class="speaker-notes">
+        <h3>3:50–4:45 · Ask for the pilot</h3>
+        <p>“My recommendation is a one-month Devin pilot. There's a lot of overlap between Devin and Cursor, and we believe Devin does everything Cursor does for your team and more. A month of real work is how you confirm that.”</p>
+        <p>“Give a group of engineers Devin on their normal work and keep the rest on Cursor. Build one small internal tool along the way. Watch whether engineers actually stay on it, whether the work holds up in review, how much babysitting it takes, and what it costs all in.”</p>
+        <p>“At the end you answer two things: can Devin replace Cursor so you're not paying for both, and was the tool worth the maintenance it created.”</p>
+        <h3>If they ask for detail</h3><p>Same tasks, same review bar for both tools. Count the failed attempts too. Count licenses, usage and support, and check what they can actually cancel before claiming savings. A month is a strong signal but won't show long-term maintenance cost. Leave about 15 seconds of buffer.</p>
+      </template>
+    </section>
+  </main>
+
+  <footer class="deck-controls">
+    <div class="slide-controls"><button type="button" id="previous" aria-label="Previous slide">←</button><span id="position" aria-live="polite" aria-atomic="true">01 / 05</span><button type="button" id="next" aria-label="Next slide">→</button><span id="current-title">Recommendation</span></div>
+    <div class="presenter-controls"><button type="button" id="timer-toggle" aria-label="Start presentation timer">Start <span id="timer">0:00</span></button><button type="button" id="timer-reset" aria-label="Reset presentation timer">Reset</button><button type="button" id="notes-toggle" aria-expanded="false" aria-controls="notes-panel">Notes <kbd>N</kbd></button><button type="button" id="sources-toggle" aria-expanded="false" aria-controls="sources-panel">Sources</button><button type="button" id="fullscreen">Fullscreen <kbd>F</kbd></button><button type="button" id="print">Print / PDF</button></div>
+  </footer>
+  <div class="deck-progress" aria-hidden="true"><span id="progress"></span></div>
+
+  <aside class="side-panel" id="notes-panel" aria-label="Speaker notes" hidden>
+    <div class="side-panel-header"><h2>Presenter notes</h2><button type="button" data-close="notes" aria-label="Close speaker notes">×</button></div>
+    <p class="panel-hint">Hide this panel before recording the slide. Use ← / → or Space to navigate; Home / End jump to the first / last slide.</p>
+    <label class="port-setting">Local demo port <input id="demo-port" type="number" value="8000" min="1" max="65535" inputmode="numeric"><span id="port-status" aria-live="polite">Demo links use port 8000.</span></label>
+    <div id="notes-content"></div>
+  </aside>
+  <aside class="side-panel" id="sources-panel" aria-label="Presentation sources" hidden>
+    <div class="side-panel-header"><h2>Sources &amp; assumptions</h2><button type="button" data-close="sources" aria-label="Close sources">×</button></div>
+    <p class="panel-hint">Official documentation reviewed September 20, 2026. Product capabilities and commercial terms can change; validate the customer's actual plan and contract.</p>
+    <ul class="source-list">
+      <li><a href="https://learn.microsoft.com/en-us/power-platform/admin/powerapps-flow-licensing-faq" target="_blank" rel="noopener noreferrer">Microsoft licensing FAQ</a><p>Per-user unlimited-app and usage-based licensing. Avoidable cost depends on the agreement and remaining usage.</p></li>
+      <li><a href="https://www.microsoft.com/en-us/licensing/news/power-app-per-app-end-of-sale" target="_blank" rel="noopener noreferrer">Microsoft per-app availability update</a><p>Purchasing-channel exceptions mean there is no universal all-or-nothing licensing answer.</p></li>
+      <li><a href="https://learn.microsoft.com/en-us/power-platform/admin/wp-data-loss-prevention" target="_blank" rel="noopener noreferrer">Power Platform data policies</a><p>Governance capabilities are part of the platform value, not a guarantee that each application is compliant.</p></li>
+      <li><a href="https://cursor.com/docs/cloud-agent" target="_blank" rel="noopener noreferrer">Cursor Cloud Agents</a><p>Cursor also supports isolated cloud development environments and delegated engineering.</p></li>
+      <li><a href="https://docs.devin.ai/desktop/devin" target="_blank" rel="noopener noreferrer">Devin Cloud and Desktop</a><p>Cloud execution and local-to-cloud delegation. Availability and terms depend on the account.</p></li>
+      <li><a href="https://github.com/aiden-lee11/northstar-operations-poc/pull/1" target="_blank" rel="noopener noreferrer">Actual Cloud implementation</a><p>Repository evidence for the evaluator and synthetic consumer; not comparative productivity or scale evidence.</p></li>
+    </ul>
+    <p class="panel-hint">The $200K and $500K figures, ~60 engineers, three existing apps, and informal laptop apps come from the assessment brief. The pilot is proposed, not completed. KYC suitability and production ownership costs have not been established through client discovery.</p>
+  </aside>
+  <noscript><p class="no-script">Enable JavaScript for slide navigation, or use Print / Save as PDF to read all five slides.</p></noscript>
+</body>
+</html>
